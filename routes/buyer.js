@@ -137,6 +137,30 @@ router.post('/orders', async (req, res) => {
   }
 });
 
+// Track order by phone or order ID
+router.post('/track-order', async (req, res) => {
+  try {
+    const { phone, orderId } = req.body;
+    
+    let query = {};
+    if (orderId) {
+      query._id = orderId;
+    } else if (phone) {
+      query.buyerPhone = phone;
+    } else {
+      return res.status(400).json({ message: 'Phone number or order ID required' });
+    }
+    
+    const orders = await Order.find(query)
+      .populate('vendor', 'businessName phoneNumber')
+      .sort({ createdAt: -1 });
+    
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Track product interest
 router.post('/track-interest', async (req, res) => {
   try {
