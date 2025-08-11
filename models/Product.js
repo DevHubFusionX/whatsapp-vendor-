@@ -37,6 +37,22 @@ const productSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  featured: {
+    type: Boolean,
+    default: false
+  },
+  views: {
+    type: Number,
+    default: 0
+  },
+  category: {
+    type: String,
+    default: 'general'
+  },
+  stock: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
