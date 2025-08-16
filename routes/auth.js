@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const Vendor = require('../models/Vendor');
+const Buyer = require('../models/Buyer');
+const BuyerInteraction = require('../models/BuyerInteraction');
 const auth = require('../middleware/auth');
 const { sendOTPEmail } = require('../utils/email');
 
@@ -231,6 +233,112 @@ router.get('/me', auth, async (req, res) => {
       catalogId: req.vendor.catalogId
     }
   });
+});
+
+// Buyer Signup
+router.post('/buyer/signup', [
+  body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
+  body('email').isEmail().withMessage('Valid email required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
+    }
+
+    const { name, email, password } = req.body;
+    
+    const existingBuyer = await Buyer.findOne({ email });
+    if (existingBuyer) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const buyer = new Buyer({
+      name,
+      email,
+      password: hashedPassword
+    });
+
+    await buyer.save();
+
+    const token = jwt.sign({ buyerId: buyer._id }, process.env.JWT_SECRET);
+    
+    res.status(201).json({
+      token,
+      buyer: {
+        _id: buyer._id,
+        name: buyer.name,
+        email: buyer.email
+      }
+    });
+  } catch (error) {
+    console.error('Buyer signup error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Buyer Login
+router.post('/buyer/login', [
+  body('email').isEmail().withMessage('Valid email required'),
+  body('password').isLength({ min: 1 }).withMessage('Password required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
+    }
+
+    const { email, password } = req.body;
+    
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    const isMatch = await bcrypt.compare(password, buyer.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign({ buyerId: buyer._id }, process.env.JWT_SECRET);
+    
+    res.json({
+      token,
+      buyer: {
+        _id: buyer._id,
+        name: buyer.name,
+        email: buyer.email
+      }
+    });
+  } catch (error) {
+    console.error('Buyer login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get buyer profile
+router.get('/buyer/profile', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const buyer = await Buyer.findById(decoded.buyerId).select('-password');
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+
+    res.json(buyer);
+  } catch (error) {
+    console.error('Get buyer profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 module.exports = router;

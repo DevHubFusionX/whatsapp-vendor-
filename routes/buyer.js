@@ -2,6 +2,7 @@ const express = require('express');
 const Vendor = require('../models/Vendor');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
+const BuyerInteraction = require('../models/BuyerInteraction');
 
 const router = express.Router();
 
@@ -171,6 +172,27 @@ router.post('/track-interest', async (req, res) => {
     
     res.json({ message: 'Interest tracked successfully' });
   } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Log buyer interactions
+router.post('/interactions', async (req, res) => {
+  try {
+    const { buyerId, vendorId, productId, action } = req.body;
+    
+    const interaction = new BuyerInteraction({
+      buyerId,
+      vendorId,
+      productId,
+      action
+    });
+
+    await interaction.save();
+    
+    res.status(201).json({ message: 'Interaction logged successfully' });
+  } catch (error) {
+    console.error('Log interaction error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
