@@ -7,8 +7,8 @@ const buyerAuth = require('../middleware/buyerAuth');
 
 const router = express.Router();
 
-// Get all vendors for buyer home page (requires authentication)
-router.get('/vendors', buyerAuth, async (req, res) => {
+// Get all vendors for buyer home page (public)
+router.get('/vendors', async (req, res) => {
   try {
     const { location, category, search } = req.query;
     
@@ -31,8 +31,8 @@ router.get('/vendors', buyerAuth, async (req, res) => {
   }
 });
 
-// Get all products for buyer browsing (requires authentication)
-router.get('/products', buyerAuth, async (req, res) => {
+// Get all products for buyer browsing (public)
+router.get('/products', async (req, res) => {
   try {
     const { category, search, minPrice, maxPrice, sort = 'newest' } = req.query;
     
@@ -78,8 +78,8 @@ router.get('/products', buyerAuth, async (req, res) => {
   }
 });
 
-// Get featured products (requires authentication)
-router.get('/products/featured', buyerAuth, async (req, res) => {
+// Get featured products (public)
+router.get('/products/featured', async (req, res) => {
   try {
     const products = await Product.find({ isActive: true, featured: true })
       .populate('vendor', 'name businessName phoneNumber')
@@ -92,8 +92,8 @@ router.get('/products/featured', buyerAuth, async (req, res) => {
   }
 });
 
-// Get product by ID (requires authentication)
-router.get('/products/:productId', buyerAuth, async (req, res) => {
+// Get product by ID (public)
+router.get('/products/:productId', async (req, res) => {
   try {
     const product = await Product.findById(req.params.productId)
       .populate('vendor', 'name businessName phoneNumber logo about');
@@ -157,6 +157,48 @@ router.post('/track-order', buyerAuth, async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
+});
+
+// Check authentication status (optional auth)
+router.get('/auth-check', async (req, res) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.json({ authenticated: false });
+    }
+
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'buyer') {
+      return res.json({ authenticated: false });
+    }
+    
+    const Buyer = require('../models/Buyer');
+    const buyer = await Buyer.findById(decoded.buyerId).select('-password');
+    
+    if (!buyer) {
+      return res.json({ authenticated: false });
+    }
+
+    res.json({ authenticated: true, buyer });
+  } catch (error) {
+    res.json({ authenticated: false });
+  }
+});
+
+// Get buyer profile (requires authentication)
+router.get('/profile', buyerAuth, async (req, res) => {
+  res.json({
+    buyer: {
+      _id: req.buyer._id,
+      name: req.buyer.name,
+      email: req.buyer.email,
+      phone: req.buyer.phone,
+      address: req.buyer.address
+    }
+  });
 });
 
 // Track product interest (requires authentication)
