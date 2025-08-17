@@ -3,6 +3,7 @@ const Vendor = require('../models/Vendor');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const BuyerInteraction = require('../models/BuyerInteraction');
+const buyerAuth = require('../middleware/buyerAuth');
 
 const router = express.Router();
 
@@ -111,16 +112,16 @@ router.get('/products/:productId', async (req, res) => {
   }
 });
 
-// Create order from buyer
-router.post('/orders', async (req, res) => {
+// Create order from buyer (requires authentication)
+router.post('/orders', buyerAuth, async (req, res) => {
   try {
-    const { vendorId, buyerName, buyerPhone, buyerEmail, items, total, deliveryAddress, notes } = req.body;
+    const { vendorId, items, total, deliveryAddress, notes } = req.body;
     
     const order = new Order({
       vendor: vendorId,
-      buyerName,
-      buyerPhone,
-      buyerEmail,
+      buyerName: req.buyer.name,
+      buyerPhone: req.buyer.phone || '',
+      buyerEmail: req.buyer.email,
       items,
       total,
       deliveryAddress,
@@ -138,18 +139,14 @@ router.post('/orders', async (req, res) => {
   }
 });
 
-// Track order by phone or order ID
-router.post('/track-order', async (req, res) => {
+// Track order by order ID or get all buyer's orders (requires authentication)
+router.post('/track-order', buyerAuth, async (req, res) => {
   try {
-    const { phone, orderId } = req.body;
+    const { orderId } = req.body;
     
-    let query = {};
+    let query = { buyerEmail: req.buyer.email };
     if (orderId) {
       query._id = orderId;
-    } else if (phone) {
-      query.buyerPhone = phone;
-    } else {
-      return res.status(400).json({ message: 'Phone number or order ID required' });
     }
     
     const orders = await Order.find(query)
@@ -176,13 +173,13 @@ router.post('/track-interest', async (req, res) => {
   }
 });
 
-// Log buyer interactions
-router.post('/interactions', async (req, res) => {
+// Log buyer interactions (requires authentication)
+router.post('/interactions', buyerAuth, async (req, res) => {
   try {
-    const { buyerId, vendorId, productId, action } = req.body;
+    const { vendorId, productId, action } = req.body;
     
     const interaction = new BuyerInteraction({
-      buyerId,
+      buyerId: req.buyer._id,
       vendorId,
       productId,
       action
