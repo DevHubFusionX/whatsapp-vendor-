@@ -236,7 +236,7 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // Buyer Signup
-router.post('/buyer/signup', [
+router.post('/signup', [
   body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
   body('email').isEmail().withMessage('Valid email required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
@@ -264,7 +264,11 @@ router.post('/buyer/signup', [
 
     await buyer.save();
 
-    const token = jwt.sign({ buyerId: buyer._id }, process.env.JWT_SECRET);
+    const token = jwt.sign({ 
+      buyerId: buyer._id, 
+      email: buyer.email, 
+      role: 'buyer' 
+    }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     res.status(201).json({
       token,
@@ -281,7 +285,7 @@ router.post('/buyer/signup', [
 });
 
 // Buyer Login
-router.post('/buyer/login', [
+router.post('/login', [
   body('email').isEmail().withMessage('Valid email required'),
   body('password').isLength({ min: 1 }).withMessage('Password required')
 ], async (req, res) => {
@@ -303,7 +307,11 @@ router.post('/buyer/login', [
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    const token = jwt.sign({ buyerId: buyer._id }, process.env.JWT_SECRET);
+    const token = jwt.sign({ 
+      buyerId: buyer._id, 
+      email: buyer.email, 
+      role: 'buyer' 
+    }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     res.json({
       token,
@@ -320,7 +328,7 @@ router.post('/buyer/login', [
 });
 
 // Get buyer profile
-router.get('/buyer/profile', async (req, res) => {
+router.get('/me', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
@@ -339,6 +347,63 @@ router.get('/buyer/profile', async (req, res) => {
     console.error('Get buyer profile error:', error);
     res.status(500).json({ message: 'Server error' });
   }
+});
+
+// Forgot Password
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Valid email required')
+], async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return res.status(404).json({ message: 'No account found with this email' });
+    }
+
+    const resetToken = jwt.sign({ buyerId: buyer._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    
+    // In a real app, send email with reset link
+    // For now, just return the token
+    res.json({ 
+      message: 'Password reset link sent to your email',
+      resetToken // Remove this in production
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reset Password
+router.post('/reset-password', [
+  body('token').notEmpty().withMessage('Reset token required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const buyer = await Buyer.findById(decoded.buyerId);
+    
+    if (!buyer) {
+      return res.status(404).json({ message: 'Invalid reset token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    buyer.password = hashedPassword;
+    await buyer.save();
+    
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(400).json({ message: 'Invalid or expired reset token' });
+  }
+});
+
+// Logout (optional - frontend handles token removal)
+router.post('/logout', (req, res) => {
+  res.json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;

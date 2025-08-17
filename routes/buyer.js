@@ -7,8 +7,8 @@ const buyerAuth = require('../middleware/buyerAuth');
 
 const router = express.Router();
 
-// Get all vendors for buyer home page
-router.get('/vendors', async (req, res) => {
+// Get all vendors for buyer home page (requires authentication)
+router.get('/vendors', buyerAuth, async (req, res) => {
   try {
     const { location, category, search } = req.query;
     
@@ -31,8 +31,8 @@ router.get('/vendors', async (req, res) => {
   }
 });
 
-// Get all products for buyer browsing
-router.get('/products', async (req, res) => {
+// Get all products for buyer browsing (requires authentication)
+router.get('/products', buyerAuth, async (req, res) => {
   try {
     const { category, search, minPrice, maxPrice, sort = 'newest' } = req.query;
     
@@ -78,8 +78,8 @@ router.get('/products', async (req, res) => {
   }
 });
 
-// Get featured products
-router.get('/products/featured', async (req, res) => {
+// Get featured products (requires authentication)
+router.get('/products/featured', buyerAuth, async (req, res) => {
   try {
     const products = await Product.find({ isActive: true, featured: true })
       .populate('vendor', 'name businessName phoneNumber')
@@ -92,8 +92,8 @@ router.get('/products/featured', async (req, res) => {
   }
 });
 
-// Get product by ID
-router.get('/products/:productId', async (req, res) => {
+// Get product by ID (requires authentication)
+router.get('/products/:productId', buyerAuth, async (req, res) => {
   try {
     const product = await Product.findById(req.params.productId)
       .populate('vendor', 'name businessName phoneNumber logo about');
@@ -159,8 +159,8 @@ router.post('/track-order', buyerAuth, async (req, res) => {
   }
 });
 
-// Track product interest
-router.post('/track-interest', async (req, res) => {
+// Track product interest (requires authentication)
+router.post('/track-interest', buyerAuth, async (req, res) => {
   try {
     const { productId, buyerPhone } = req.body;
     

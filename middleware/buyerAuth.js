@@ -10,6 +10,11 @@ const buyerAuth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    if (decoded.role !== 'buyer') {
+      return res.status(401).json({ message: 'Access denied. Buyer access required.' });
+    }
+    
     const buyer = await Buyer.findById(decoded.buyerId);
     
     if (!buyer) {
