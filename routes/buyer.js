@@ -34,7 +34,7 @@ router.get('/vendors', async (req, res) => {
 // Get all products for buyer browsing (public)
 router.get('/products', async (req, res) => {
   try {
-    const { category, search, minPrice, maxPrice, sort = 'newest' } = req.query;
+    const { category, search, minPrice, maxPrice, sort = 'newest', vendor } = req.query;
     
     let query = { isActive: true };
     
@@ -44,6 +44,10 @@ router.get('/products', async (req, res) => {
     
     if (category) {
       query.category = category;
+    }
+    
+    if (vendor) {
+      query.vendor = vendor;
     }
     
     if (minPrice || maxPrice) {
