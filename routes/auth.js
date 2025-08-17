@@ -173,67 +173,9 @@ router.post('/resend-otp', [
   }
 });
 
-// Login
-router.post('/login', [
-  body('email').isEmail().withMessage('Valid email required'),
-  body('password').isLength({ min: 1 }).withMessage('Password required')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
 
-    const { email, password } = req.body;
-    
-    const vendor = await Vendor.findOne({ email });
-    if (!vendor) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
 
-    if (!vendor.isVerified) {
-      return res.status(400).json({ message: 'Please verify your email first' });
-    }
 
-    const isMatch = await bcrypt.compare(password, vendor.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ vendorId: vendor._id }, process.env.JWT_SECRET);
-    
-    res.json({
-      token,
-      vendor: {
-        id: vendor._id,
-        name: vendor.name,
-        email: vendor.email,
-        businessName: vendor.businessName,
-        phoneNumber: vendor.phoneNumber,
-        catalogId: vendor.catalogId
-      }
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error: ' + error.message });
-  }
-});
-
-// Get current vendor
-router.get('/me', auth, async (req, res) => {
-  res.json({
-    vendor: {
-      id: req.vendor._id,
-      name: req.vendor.name,
-      email: req.vendor.email,
-      businessName: req.vendor.businessName,
-      phoneNumber: req.vendor.phoneNumber,
-      logo: req.vendor.logo,
-      about: req.vendor.about,
-      catalogId: req.vendor.catalogId
-    }
-  });
-});
 
 // Buyer Signup
 router.post('/signup', [
@@ -284,7 +226,7 @@ router.post('/signup', [
   }
 });
 
-// Buyer Login
+// Buyer Login - Updated to handle both vendor and buyer login
 router.post('/login', [
   body('email').isEmail().withMessage('Valid email required'),
   body('password').isLength({ min: 1 }).withMessage('Password required')
@@ -297,37 +239,65 @@ router.post('/login', [
 
     const { email, password } = req.body;
     
+    // First try to find buyer
     const buyer = await Buyer.findOne({ email });
-    if (!buyer) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+    if (buyer) {
+      const isMatch = await bcrypt.compare(password, buyer.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      const token = jwt.sign({ 
+        buyerId: buyer._id, 
+        email: buyer.email, 
+        role: 'buyer' 
+      }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      
+      return res.json({
+        token,
+        buyer: {
+          _id: buyer._id,
+          name: buyer.name,
+          email: buyer.email
+        }
+      });
+    }
+    
+    // If not buyer, try vendor
+    const vendor = await Vendor.findOne({ email });
+    if (!vendor) {
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, buyer.password);
+    if (!vendor.isVerified) {
+      return res.status(400).json({ message: 'Please verify your email first' });
+    }
+
+    const isMatch = await bcrypt.compare(password, vendor.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ 
-      buyerId: buyer._id, 
-      email: buyer.email, 
-      role: 'buyer' 
-    }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ vendorId: vendor._id }, process.env.JWT_SECRET);
     
     res.json({
       token,
-      buyer: {
-        _id: buyer._id,
-        name: buyer.name,
-        email: buyer.email
+      vendor: {
+        id: vendor._id,
+        name: vendor.name,
+        email: vendor.email,
+        businessName: vendor.businessName,
+        phoneNumber: vendor.phoneNumber,
+        catalogId: vendor.catalogId
       }
     });
   } catch (error) {
-    console.error('Buyer login error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Get buyer profile
+// Get current user profile (buyer or vendor)
 router.get('/me', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -336,15 +306,39 @@ router.get('/me', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const buyer = await Buyer.findById(decoded.buyerId).select('-password');
     
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
+    // Check if it's a buyer token
+    if (decoded.buyerId) {
+      const buyer = await Buyer.findById(decoded.buyerId).select('-password');
+      if (!buyer) {
+        return res.status(404).json({ message: 'Buyer not found' });
+      }
+      return res.json({ buyer });
     }
-
-    res.json(buyer);
+    
+    // Check if it's a vendor token
+    if (decoded.vendorId) {
+      const vendor = await Vendor.findById(decoded.vendorId);
+      if (!vendor) {
+        return res.status(404).json({ message: 'Vendor not found' });
+      }
+      return res.json({
+        vendor: {
+          id: vendor._id,
+          name: vendor.name,
+          email: vendor.email,
+          businessName: vendor.businessName,
+          phoneNumber: vendor.phoneNumber,
+          logo: vendor.logo,
+          about: vendor.about,
+          catalogId: vendor.catalogId
+        }
+      });
+    }
+    
+    return res.status(401).json({ message: 'Invalid token' });
   } catch (error) {
-    console.error('Get buyer profile error:', error);
+    console.error('Get profile error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
