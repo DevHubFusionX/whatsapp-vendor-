@@ -26,15 +26,29 @@ app.use(cors({
     'http://localhost:5173',
     'http://localhost:5174', 
     'https://whatsapp-frontend-vendor.vercel.app',
-    'https://whatsapp-buyer-frontend.vercel.app'
+    'https://whatsapp-buyer-frontend.vercel.app',
+    /\.vercel\.app$/
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 
-// Handle preflight requests
-app.options('*', cors());
+// Handle preflight requests explicitly
+app.options('*', cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174', 
+    'https://whatsapp-frontend-vendor.vercel.app',
+    'https://whatsapp-buyer-frontend.vercel.app',
+    /\.vercel\.app$/
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Request logging

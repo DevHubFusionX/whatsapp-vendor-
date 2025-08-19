@@ -1,9 +1,12 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const Vendor = require('../models/Vendor');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const BuyerInteraction = require('../models/BuyerInteraction');
+const Buyer = require('../models/Buyer');
 const buyerAuth = require('../middleware/buyerAuth');
+const { sendOTPEmail } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -179,7 +182,7 @@ router.get('/auth-check', async (req, res) => {
       return res.json({ authenticated: false });
     }
     
-    const Buyer = require('../models/Buyer');
+
     const buyer = await Buyer.findById(decoded.buyerId).select('-password');
     
     if (!buyer) {
@@ -236,6 +239,88 @@ router.post('/interactions', buyerAuth, async (req, res) => {
     res.status(201).json({ message: 'Interaction logged successfully' });
   } catch (error) {
     console.error('Log interaction error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Forgot password - send OTP
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const buyer = await Buyer.findOne({ email });
+    if (!buyer) {
+      return res.status(404).json({ message: 'No account found with this email address' });
+    }
+    
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Set OTP and expiration (10 minutes)
+    buyer.resetOTP = otp;
+    buyer.resetOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await buyer.save();
+    
+    // Send OTP email
+    await sendOTPEmail(buyer.email, otp, buyer.name);
+    
+    res.json({ message: 'OTP sent to your email address' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
+  }
+});
+
+// Verify OTP
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    
+    const buyer = await Buyer.findOne({ 
+      email,
+      resetOTP: otp,
+      resetOTPExpires: { $gt: Date.now() }
+    });
+    
+    if (!buyer) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+    
+    res.json({ message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reset password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    
+    const buyer = await Buyer.findOne({ 
+      email,
+      resetOTP: otp,
+      resetOTPExpires: { $gt: Date.now() }
+    });
+    
+    if (!buyer) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+    
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    buyer.password = await bcrypt.hash(newPassword, salt);
+    
+    // Clear OTP fields
+    buyer.resetOTP = undefined;
+    buyer.resetOTPExpires = undefined;
+    
+    await buyer.save();
+    
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
