@@ -38,13 +38,11 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     unique: true
   },
-  otp: {
-    type: String,
-    default: null
+  resetOTP: {
+    type: String
   },
-  otpExpiry: {
-    type: Date,
-    default: null
+  resetOTPExpires: {
+    type: Date
   }
 }, {
   timestamps: true

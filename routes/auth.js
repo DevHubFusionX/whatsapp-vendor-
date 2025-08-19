@@ -343,7 +343,82 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// Forgot Password
+// Vendor Forgot Password
+router.post('/vendor/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const vendor = await Vendor.findOne({ email });
+    if (!vendor) {
+      return res.status(404).json({ message: 'No account found with this email address' });
+    }
+    
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    vendor.resetOTP = otp;
+    vendor.resetOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await vendor.save();
+    
+    await sendOTPEmail(vendor.email, otp, vendor.name);
+    
+    res.json({ message: 'OTP sent to your email address' });
+  } catch (error) {
+    console.error('Vendor forgot password error:', error);
+    res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
+  }
+});
+
+// Vendor Verify OTP
+router.post('/vendor/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    
+    const vendor = await Vendor.findOne({ 
+      email,
+      resetOTP: otp,
+      resetOTPExpires: { $gt: Date.now() }
+    });
+    
+    if (!vendor) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+    
+    res.json({ message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('Vendor verify OTP error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Vendor Reset Password
+router.post('/vendor/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    
+    const vendor = await Vendor.findOne({ 
+      email,
+      resetOTP: otp,
+      resetOTPExpires: { $gt: Date.now() }
+    });
+    
+    if (!vendor) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+    
+    const salt = await bcrypt.genSalt(10);
+    vendor.password = await bcrypt.hash(newPassword, salt);
+    vendor.resetOTP = undefined;
+    vendor.resetOTPExpires = undefined;
+    
+    await vendor.save();
+    
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Vendor reset password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Buyer Forgot Password
 router.post('/forgot-password', [
   body('email').isEmail().withMessage('Valid email required')
 ], async (req, res) => {
