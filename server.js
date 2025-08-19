@@ -4,7 +4,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/authNew');
 const productRoutes = require('./routes/products');
 const vendorRoutes = require('./routes/vendors');
 const orderRoutes = require('./routes/orders');

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const Buyer = require('../models/Buyer');
+const User = require('../models/User');
 
 const buyerAuth = async (req, res, next) => {
   try {
@@ -15,13 +15,13 @@ const buyerAuth = async (req, res, next) => {
       return res.status(401).json({ message: 'Access denied. Buyer access required.' });
     }
     
-    const buyer = await Buyer.findById(decoded.buyerId);
+    const user = await User.findById(decoded.userId);
     
-    if (!buyer) {
+    if (!user || user.role !== 'buyer') {
       return res.status(401).json({ message: 'Invalid token. Please login again.' });
     }
 
-    req.buyer = buyer;
+    req.buyer = user;
     next();
   } catch (error) {
     res.status(401).json({ message: 'Invalid token. Please login again.' });
