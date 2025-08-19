@@ -12,11 +12,11 @@ const sendOTPEmail = async (email, otp, name) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Password Reset OTP - CMS Platform',
+    subject: 'Password Reset OTP - buyer app',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #10b981; margin: 0;">CMS Platform</h1>
+          <h1 style="color: #10b981; margin: 0;">buyer app</h1>
           <p style="color: #6b7280; margin: 5px 0;">Password Reset Request</p>
         </div>
         
