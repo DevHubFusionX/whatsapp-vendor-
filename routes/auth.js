@@ -121,7 +121,7 @@ router.post('/verify-otp', [
     res.json({
       token,
       vendor: {
-        id: vendor._id,
+        _id: vendor._id,
         name: vendor.name,
         email: vendor.email,
         businessName: vendor.businessName,
@@ -283,7 +283,7 @@ router.post('/login', [
     res.json({
       token,
       vendor: {
-        id: vendor._id,
+        _id: vendor._id,
         name: vendor.name,
         email: vendor.email,
         businessName: vendor.businessName,
@@ -324,7 +324,7 @@ router.get('/me', async (req, res) => {
       }
       return res.json({
         vendor: {
-          id: vendor._id,
+          _id: vendor._id,
           name: vendor.name,
           email: vendor.email,
           businessName: vendor.businessName,
