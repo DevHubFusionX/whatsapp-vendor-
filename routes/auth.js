@@ -116,17 +116,22 @@ router.post('/verify-otp', [
     await vendor.save();
 
     // Generate JWT token
-    const token = jwt.sign({ vendorId: vendor._id }, process.env.JWT_SECRET);
+    const token = jwt.sign({ 
+      userId: vendor._id, 
+      email: vendor.email, 
+      role: 'vendor' 
+    }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     res.json({
       token,
-      vendor: {
+      user: {
         _id: vendor._id,
         name: vendor.name,
         email: vendor.email,
         businessName: vendor.businessName,
         phoneNumber: vendor.phoneNumber,
-        catalogId: vendor.catalogId
+        catalogId: vendor.catalogId,
+        role: 'vendor'
       }
     });
   } catch (error) {
@@ -278,17 +283,22 @@ router.post('/login', [
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ vendorId: vendor._id }, process.env.JWT_SECRET);
+    const token = jwt.sign({ 
+      userId: vendor._id, 
+      email: vendor.email, 
+      role: 'vendor' 
+    }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     res.json({
       token,
-      vendor: {
+      user: {
         _id: vendor._id,
         name: vendor.name,
         email: vendor.email,
         businessName: vendor.businessName,
         phoneNumber: vendor.phoneNumber,
-        catalogId: vendor.catalogId
+        catalogId: vendor.catalogId,
+        role: 'vendor'
       }
     });
   } catch (error) {
@@ -313,17 +323,18 @@ router.get('/me', async (req, res) => {
       if (!buyer) {
         return res.status(404).json({ message: 'Buyer not found' });
       }
-      return res.json({ buyer });
+      return res.json({ user: buyer });
     }
     
-    // Check if it's a vendor token
-    if (decoded.vendorId) {
-      const vendor = await Vendor.findById(decoded.vendorId);
+    // Check if it's a vendor token (handle both vendorId and userId for compatibility)
+    const vendorId = decoded.vendorId || decoded.userId;
+    if (vendorId) {
+      const vendor = await Vendor.findById(vendorId);
       if (!vendor) {
         return res.status(404).json({ message: 'Vendor not found' });
       }
       return res.json({
-        vendor: {
+        user: {
           _id: vendor._id,
           name: vendor.name,
           email: vendor.email,
@@ -331,7 +342,8 @@ router.get('/me', async (req, res) => {
           phoneNumber: vendor.phoneNumber,
           logo: vendor.logo,
           about: vendor.about,
-          catalogId: vendor.catalogId
+          catalogId: vendor.catalogId,
+          role: 'vendor'
         }
       });
     }
@@ -339,7 +351,7 @@ router.get('/me', async (req, res) => {
     return res.status(401).json({ message: 'Invalid token' });
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(401).json({ message: 'Invalid token' });
   }
 });
 
