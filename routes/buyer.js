@@ -34,6 +34,67 @@ router.get('/vendors', async (req, res) => {
   }
 });
 
+// Get vendor by ID or catalogId (public)
+router.get('/vendors/:vendorId', async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    
+    const vendor = await User.findOne({
+      $or: [
+        { _id: vendorId },
+        { catalogId: vendorId }
+      ],
+      role: 'vendor',
+      isVerified: true
+    }).select('name businessName logo about catalogId phone');
+    
+    if (!vendor) {
+      return res.status(404).json({ message: 'Store not found' });
+    }
+    
+    // Get vendor's products
+    const products = await Product.find({ 
+      vendor: vendor._id, 
+      isActive: true 
+    }).sort({ createdAt: -1 });
+    
+    res.json({ vendor, products });
+  } catch (error) {
+    console.error('Get vendor error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get vendor products by vendor ID (public)
+router.get('/vendors/:vendorId/products', async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    
+    const vendor = await User.findOne({
+      $or: [
+        { _id: vendorId },
+        { catalogId: vendorId }
+      ],
+      role: 'vendor',
+      isVerified: true
+    });
+    
+    if (!vendor) {
+      return res.status(404).json({ message: 'Store not found' });
+    }
+    
+    const products = await Product.find({ 
+      vendor: vendor._id, 
+      isActive: true 
+    }).sort({ createdAt: -1 });
+    
+    res.json(products);
+  } catch (error) {
+    console.error('Get vendor products error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all products for buyer browsing (public)
 router.get('/products', async (req, res) => {
   try {
