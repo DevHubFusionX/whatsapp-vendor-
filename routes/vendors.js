@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const Vendor = require('../models/Vendor');
+const User = require('../models/User');
 const Product = require('../models/Product');
 const auth = require('../middleware/auth');
 const { uploadImage } = require('../utils/cloudinary');
@@ -11,7 +11,7 @@ const router = express.Router();
 router.get('/:catalogId', async (req, res) => {
   try {
     console.log('Looking for vendor with catalogId:', req.params.catalogId);
-    const vendor = await Vendor.findOne({ catalogId: req.params.catalogId });
+    const vendor = await User.findOne({ catalogId: req.params.catalogId, role: 'vendor' });
     console.log('Found vendor:', vendor ? vendor.businessName : 'Not found');
     
     if (!vendor) {
@@ -28,7 +28,7 @@ router.get('/:catalogId', async (req, res) => {
         id: vendor._id,
         name: vendor.name,
         businessName: vendor.businessName,
-        phoneNumber: vendor.phoneNumber,
+        phoneNumber: vendor.phone,
         logo: vendor.logo,
         about: vendor.about,
         catalogId: vendor.catalogId
@@ -70,7 +70,7 @@ router.put('/profile', auth, [
         id: req.vendor._id,
         name: req.vendor.name,
         businessName: req.vendor.businessName,
-        phoneNumber: req.vendor.phoneNumber,
+        phoneNumber: req.vendor.phone,
         logo: req.vendor.logo,
         about: req.vendor.about,
         catalogId: req.vendor.catalogId

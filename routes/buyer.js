@@ -1,10 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const Vendor = require('../models/Vendor');
+const User = require('../models/User');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const BuyerInteraction = require('../models/BuyerInteraction');
-const Buyer = require('../models/Buyer');
 const buyerAuth = require('../middleware/buyerAuth');
 const { sendOTPEmail } = require('../services/emailService');
 
@@ -15,7 +14,7 @@ router.get('/vendors', async (req, res) => {
   try {
     const { location, category, search } = req.query;
     
-    let query = { isVerified: true };
+    let query = { role: 'vendor', isVerified: true };
     
     if (search) {
       query.$or = [
@@ -24,12 +23,13 @@ router.get('/vendors', async (req, res) => {
       ];
     }
     
-    const vendors = await Vendor.find(query)
-      .select('name businessName logo about catalogId phoneNumber')
+    const vendors = await User.find(query)
+      .select('name businessName logo about catalogId phone')
       .limit(20);
     
     res.json(vendors);
   } catch (error) {
+    console.error('Get vendors error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -75,7 +75,7 @@ router.get('/products', async (req, res) => {
     }
     
     const products = await Product.find(query)
-      .populate('vendor', 'name businessName phoneNumber')
+      .populate('vendor', 'name businessName phone')
       .sort(sortQuery)
       .limit(50);
     
@@ -89,7 +89,7 @@ router.get('/products', async (req, res) => {
 router.get('/products/featured', async (req, res) => {
   try {
     const products = await Product.find({ isActive: true, featured: true })
-      .populate('vendor', 'name businessName phoneNumber')
+      .populate('vendor', 'name businessName phone')
       .sort({ views: -1 })
       .limit(10);
     
@@ -103,7 +103,7 @@ router.get('/products/featured', async (req, res) => {
 router.get('/products/:productId', async (req, res) => {
   try {
     const product = await Product.findById(req.params.productId)
-      .populate('vendor', 'name businessName phoneNumber logo about');
+      .populate('vendor', 'name businessName phone logo about');
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
@@ -157,7 +157,7 @@ router.post('/track-order', buyerAuth, async (req, res) => {
     }
     
     const orders = await Order.find(query)
-      .populate('vendor', 'businessName phoneNumber')
+      .populate('vendor', 'businessName phone')
       .sort({ createdAt: -1 });
     
     res.json(orders);
@@ -183,7 +183,7 @@ router.get('/auth-check', async (req, res) => {
     }
     
 
-    const buyer = await Buyer.findById(decoded.buyerId).select('-password');
+    const buyer = await User.findById(decoded.userId).select('-password');
     
     if (!buyer) {
       return res.json({ authenticated: false });
@@ -248,7 +248,7 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
     
-    const buyer = await Buyer.findOne({ email });
+    const buyer = await User.findOne({ email, role: 'buyer' });
     if (!buyer) {
       return res.status(404).json({ message: 'No account found with this email address' });
     }
@@ -276,8 +276,9 @@ router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
     
-    const buyer = await Buyer.findOne({ 
+    const buyer = await User.findOne({ 
       email,
+      role: 'buyer',
       resetOTP: otp,
       resetOTPExpires: { $gt: Date.now() }
     });
@@ -298,8 +299,9 @@ router.post('/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     
-    const buyer = await Buyer.findOne({ 
+    const buyer = await User.findOne({ 
       email,
+      role: 'buyer',
       resetOTP: otp,
       resetOTPExpires: { $gt: Date.now() }
     });

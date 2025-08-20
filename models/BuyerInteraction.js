@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const buyerInteractionSchema = new mongoose.Schema({
   buyerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Buyer',
+    ref: 'User',
     required: true
   },
   vendorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
+    ref: 'User',
     required: true
   },
   productId: {
