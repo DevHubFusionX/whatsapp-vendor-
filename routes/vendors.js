@@ -10,8 +10,14 @@ const router = express.Router();
 // Get public vendor profile
 router.get('/:catalogId', async (req, res) => {
   try {
-    console.log('Looking for vendor with catalogId:', req.params.catalogId);
-    const vendor = await User.findOne({ catalogId: req.params.catalogId, role: 'vendor' });
+    console.log('Looking for vendor with ID:', req.params.catalogId);
+    const vendor = await User.findOne({ 
+      $or: [
+        { _id: req.params.catalogId },
+        { catalogId: req.params.catalogId }
+      ],
+      role: 'vendor' 
+    });
     console.log('Found vendor:', vendor ? vendor.businessName : 'Not found');
     
     if (!vendor) {
