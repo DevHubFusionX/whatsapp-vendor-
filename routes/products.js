@@ -28,11 +28,27 @@ router.post('/', auth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, price, description, image, category } = req.body;
+    const { name, price, description, image, images, category } = req.body;
     
     let imageUrl = null;
+    let imageUrls = [];
+    
     if (image) {
       imageUrl = await uploadImage(image);
+    }
+    
+    if (images && Array.isArray(images)) {
+      for (const img of images) {
+        if (img) {
+          const uploadedUrl = await uploadImage(img);
+          imageUrls.push(uploadedUrl);
+        }
+      }
+    }
+    
+    // If no main image but has images array, use first image as main
+    if (!imageUrl && imageUrls.length > 0) {
+      imageUrl = imageUrls[0];
     }
 
     const product = new Product({
@@ -40,6 +56,7 @@ router.post('/', auth, [
       price: parseFloat(price),
       description: description || '',
       image: imageUrl,
+      images: imageUrls,
       category: category || 'general',
       vendor: req.vendor._id
     });
@@ -62,7 +79,7 @@ router.put('/:id', auth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, price, description, image, category } = req.body;
+    const { name, price, description, image, images, category } = req.body;
     
     const product = await Product.findOne({ 
       _id: req.params.id, 
@@ -74,14 +91,32 @@ router.put('/:id', auth, [
     }
 
     let imageUrl = product.image;
+    let imageUrls = product.images || [];
+    
     if (image && image !== product.image) {
       imageUrl = await uploadImage(image);
+    }
+    
+    if (images && Array.isArray(images)) {
+      imageUrls = [];
+      for (const img of images) {
+        if (img) {
+          const uploadedUrl = await uploadImage(img);
+          imageUrls.push(uploadedUrl);
+        }
+      }
+    }
+    
+    // If no main image but has images array, use first image as main
+    if (!imageUrl && imageUrls.length > 0) {
+      imageUrl = imageUrls[0];
     }
 
     product.name = name;
     product.price = parseFloat(price);
     product.description = description || '';
     product.image = imageUrl;
+    product.images = imageUrls;
     product.category = category || 'general';
 
     await product.save();
