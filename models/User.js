@@ -15,10 +15,11 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['buyer', 'vendor'],
+    enum: ['vendor'],
+    default: 'vendor',
     required: true
   },
-  // Common fields
+  // Vendor fields
   name: {
     type: String,
     required: true,
@@ -26,16 +27,13 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
+    required: true,
     trim: true
   },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  // Vendor-specific fields
   businessName: {
     type: String,
-    required: function() { return this.role === 'vendor'; }
+    required: true,
+    trim: true
   },
   logo: {
     type: String
@@ -44,19 +42,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   isVerified: {
     type: Boolean,
-    default: function() { return this.role === 'buyer'; } // Buyers auto-verified, vendors need verification
+    default: false // Vendors need email verification
   },
   catalogId: {
     type: String,
     unique: true,
     sparse: true
-  },
-  // Buyer-specific fields
-  address: {
-    type: String,
-    trim: true
   },
   // OTP fields for password reset
   resetOTP: {
@@ -65,7 +62,7 @@ const userSchema = new mongoose.Schema({
   resetOTPExpires: {
     type: Date
   },
-  // Email verification OTP (for vendors)
+  // Email verification OTP
   otp: {
     type: String
   },
@@ -76,9 +73,9 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Generate catalog ID for vendors before saving
+// Generate catalog ID before saving
 userSchema.pre('save', function(next) {
-  if (this.role === 'vendor' && !this.catalogId) {
+  if (!this.catalogId) {
     this.catalogId = this._id.toString();
   }
   next();

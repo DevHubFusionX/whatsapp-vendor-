@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Buyer = require('../models/Buyer');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const BuyerInteraction = require('../models/BuyerInteraction');
@@ -243,14 +244,24 @@ router.get('/auth-check', async (req, res) => {
       return res.json({ authenticated: false });
     }
     
-
-    const buyer = await User.findById(decoded.userId).select('-password');
+    const buyer = await Buyer.findById(decoded.userId).select('-password');
     
     if (!buyer) {
       return res.json({ authenticated: false });
     }
 
-    res.json({ authenticated: true, buyer });
+    res.json({ 
+      authenticated: true, 
+      buyer: {
+        _id: buyer._id,
+        name: buyer.name,
+        email: buyer.email,
+        phone: buyer.phone,
+        address: buyer.address,
+        profileCompletion: buyer.profileCompletion,
+        role: 'buyer'
+      }
+    });
   } catch (error) {
     res.json({ authenticated: false });
   }
@@ -258,15 +269,66 @@ router.get('/auth-check', async (req, res) => {
 
 // Get buyer profile (requires authentication)
 router.get('/profile', buyerAuth, async (req, res) => {
-  res.json({
-    buyer: {
-      _id: req.buyer._id,
-      name: req.buyer.name,
-      email: req.buyer.email,
-      phone: req.buyer.phone,
-      address: req.buyer.address
+  try {
+    const buyer = await Buyer.findById(req.buyer._id).select('-password');
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
     }
-  });
+    
+    res.json({
+      buyer: {
+        _id: buyer._id,
+        name: buyer.name,
+        email: buyer.email,
+        phone: buyer.phone,
+        address: buyer.address,
+        profileCompletion: buyer.profileCompletion,
+        orderCount: buyer.orderCount,
+        isVerified: buyer.isVerified,
+        createdAt: buyer.createdAt,
+        preferences: buyer.preferences
+      }
+    });
+  } catch (error) {
+    console.error('Get buyer profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update buyer profile (requires authentication)
+router.put('/profile', buyerAuth, async (req, res) => {
+  try {
+    const { name, phone, address, preferences } = req.body;
+    
+    const buyer = await Buyer.findById(req.buyer._id);
+    if (!buyer) {
+      return res.status(404).json({ message: 'Buyer not found' });
+    }
+    
+    // Update fields if provided
+    if (name) buyer.name = name.trim();
+    if (phone !== undefined) buyer.phone = phone.trim();
+    if (address !== undefined) buyer.address = address.trim();
+    if (preferences) buyer.preferences = { ...buyer.preferences, ...preferences };
+    
+    await buyer.save(); // This will trigger profile completion calculation
+    
+    res.json({
+      message: 'Profile updated successfully',
+      buyer: {
+        _id: buyer._id,
+        name: buyer.name,
+        email: buyer.email,
+        phone: buyer.phone,
+        address: buyer.address,
+        profileCompletion: buyer.profileCompletion,
+        preferences: buyer.preferences
+      }
+    });
+  } catch (error) {
+    console.error('Update buyer profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // Track product interest (requires authentication)
@@ -309,9 +371,9 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
     
-    const buyer = await User.findOne({ email, role: 'buyer' });
+    const buyer = await Buyer.findOne({ email });
     if (!buyer) {
-      return res.status(404).json({ message: 'No account found with this email address' });
+      return res.status(404).json({ message: 'No buyer account found with this email address' });
     }
     
     // Generate 6-digit OTP
@@ -327,7 +389,7 @@ router.post('/forgot-password', async (req, res) => {
     
     res.json({ message: 'OTP sent to your email address' });
   } catch (error) {
-    console.error('Forgot password error:', error);
+    console.error('Buyer forgot password error:', error);
     res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
   }
 });
@@ -337,9 +399,8 @@ router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
     
-    const buyer = await User.findOne({ 
+    const buyer = await Buyer.findOne({ 
       email,
-      role: 'buyer',
       resetOTP: otp,
       resetOTPExpires: { $gt: Date.now() }
     });
@@ -350,7 +411,7 @@ router.post('/verify-otp', async (req, res) => {
     
     res.json({ message: 'OTP verified successfully' });
   } catch (error) {
-    console.error('Verify OTP error:', error);
+    console.error('Buyer verify OTP error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -360,9 +421,8 @@ router.post('/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     
-    const buyer = await User.findOne({ 
+    const buyer = await Buyer.findOne({ 
       email,
-      role: 'buyer',
       resetOTP: otp,
       resetOTPExpires: { $gt: Date.now() }
     });
@@ -383,7 +443,7 @@ router.post('/reset-password', async (req, res) => {
     
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
-    console.error('Reset password error:', error);
+    console.error('Buyer reset password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
